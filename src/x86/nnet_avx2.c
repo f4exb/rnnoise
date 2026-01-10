@@ -31,7 +31,7 @@
 
 #include "x86/x86_arch_macros.h"
 
-#ifndef __AVX2__
+#if !defined(__AVX2__) && !defined(_MSC_VER)
 #error nnet_avx2.c is being compiled without AVX2 enabled
 #endif
 
