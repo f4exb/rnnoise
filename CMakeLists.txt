@@ -25,7 +25,11 @@ file(ARCHIVE_EXTRACT INPUT "${RNNOISE_MODEL_ARCHIVE}" DESTINATION "${CMAKE_SOURC
 
 add_definitions(-DRNNOISE_BUILD)
 
-set(RNN_COMPILE_OPTIONS "-O3;-pedantic;-Wall;-Wextra;-Wno-sign-compare;-Wno-parentheses;-Wno-long-long;-fvisibility=hidden")
+if(MSVC)
+    set(RNN_COMPILE_OPTIONS "-O2")
+else()
+    set(RNN_COMPILE_OPTIONS "-O3;-pedantic;-Wall;-Wextra;-Wno-sign-compare;-Wno-parentheses;-Wno-long-long;-fvisibility=hidden")
+endif()
 
 set(rnnoise_HEADERS
     include/rnnoise.h
