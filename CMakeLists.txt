@@ -89,7 +89,11 @@ if (RNN_ENABLE_X86_RTCD)
         ${rrnoise_SOURCES_SSE4.1}
         ${rnnoise_SOURCES_AVX2}
     )
-    set(RNN_COMPILE_OPTIONS "${RNN_COMPILE_OPTIONS};-msse4.1;-mavx;-mfma;-mavx2")
+    if (MSVC)
+        set(RNN_COMPILE_OPTIONS "${RNN_COMPILE_OPTIONS};/arch:SSE2;/arch:AVX;/arch:AVX2")
+    else()
+        set(RNN_COMPILE_OPTIONS "${RNN_COMPILE_OPTIONS};-msse4.1;-mavx;-mfma;-mavx2")
+    endif()
 endif()
 
 include_directories(
