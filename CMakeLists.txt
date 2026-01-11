@@ -106,7 +106,10 @@ set(TARGET_NAME "rnnoise")
 add_library(${TARGET_NAME} ${rnnoise_SOURCES})
 
 target_compile_options(${TARGET_NAME} PRIVATE ${RNN_COMPILE_OPTIONS})
-target_link_libraries(${TARGET_NAME} PRIVATE m)
+
+if (LINUX)
+    target_link_libraries(${TARGET_NAME} PRIVATE m)
+endif()
 
 install(TARGETS ${TARGET_NAME} DESTINATION ${INSTALL_LIB_DIR})
 install(FILES ${rnnoise_HEADERS} DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
