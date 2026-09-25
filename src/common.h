@@ -9,6 +9,13 @@
 #define RNN_INLINE inline
 #define OPUS_INLINE inline
 
+/* MSVC does not implement the C99 restrict keyword. */
+#ifdef _MSC_VER
+#define RNN_RESTRICT __restrict
+#else
+#define RNN_RESTRICT restrict
+#endif
+
 
 /** RNNoise wrapper for malloc(). To do your own dynamic allocation, all you need t
 o do is replace this function and rnnoise_free */

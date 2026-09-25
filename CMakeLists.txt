@@ -1,32 +1,39 @@
 cmake_minimum_required(VERSION 3.18)
-project(rnnoise)
+project(rnnoise LANGUAGES C)
+
+include(GNUInstallDirs)
 
 # Build a shared library by default (can be overridden with -DBUILD_SHARED_LIBS=OFF)
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
-# Ignore CRT warnings on MSVC
-if(MSVC)
-  add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-endif()
-
 set(RNNOISE_MODEL_HASH "0a8755f8e2d834eff6a54714ecc7d75f9932e845df35f8b59bc52a7cfe6e8b37")
 set(RNNOISE_MODEL_URL "https://media.xiph.org/rnnoise/models/rnnoise_data-${RNNOISE_MODEL_HASH}.tar.gz")
-set(RNNOISE_MODEL_ARCHIVE "${CMAKE_BINARY_DIR}/rnnoise_data.tar.gz")
-set(RNNOISE_MODEL_DIR "${CMAKE_BINARY_DIR}/model")
+set(RNNOISE_MODEL_ARCHIVE "${CMAKE_CURRENT_BINARY_DIR}/rnnoise_data.tar.gz" CACHE FILEPATH
+    "Path to the pinned RNNoise model archive (downloaded when absent)")
+set(RNNOISE_MODEL_DIR "${CMAKE_CURRENT_BINARY_DIR}/model")
 
-file(DOWNLOAD "${RNNOISE_MODEL_URL}" "${RNNOISE_MODEL_ARCHIVE}"
-     EXPECTED_HASH SHA256=${RNNOISE_MODEL_HASH}  # verify hash
-     STATUS download_status)
-if(NOT download_status EQUAL 0)
-  message(FATAL_ERROR "Download failed: ${download_status}")
+if(NOT EXISTS "${RNNOISE_MODEL_ARCHIVE}")
+  file(DOWNLOAD "${RNNOISE_MODEL_URL}" "${RNNOISE_MODEL_ARCHIVE}"
+       EXPECTED_HASH SHA256=${RNNOISE_MODEL_HASH}
+       STATUS download_status)
+  list(GET download_status 0 download_code)
+  if(NOT download_code EQUAL 0)
+    message(FATAL_ERROR "RNNoise model download failed: ${download_status}")
+  endif()
+endif()
+file(SHA256 "${RNNOISE_MODEL_ARCHIVE}" model_hash)
+if(NOT model_hash STREQUAL RNNOISE_MODEL_HASH)
+  message(FATAL_ERROR "RNNoise model archive has an unexpected SHA256: ${RNNOISE_MODEL_ARCHIVE}")
 endif()
 
-file(ARCHIVE_EXTRACT INPUT "${RNNOISE_MODEL_ARCHIVE}" DESTINATION "${CMAKE_SOURCE_DIR}")
-
-add_definitions(-DRNNOISE_BUILD)
+if(NOT EXISTS "${RNNOISE_MODEL_DIR}/src/rnnoise_data.c" OR
+   NOT EXISTS "${RNNOISE_MODEL_DIR}/src/rnnoise_data.h")
+  file(ARCHIVE_EXTRACT INPUT "${RNNOISE_MODEL_ARCHIVE}" DESTINATION "${RNNOISE_MODEL_DIR}")
+endif()
 
 if(MSVC)
-    set(RNN_COMPILE_OPTIONS "-O2")
+    # Use CMake's configuration-specific MSVC optimization flags.
+    set(RNN_COMPILE_OPTIONS "")
 else()
     set(RNN_COMPILE_OPTIONS "-O3;-pedantic;-Wall;-Wextra;-Wno-sign-compare;-Wno-parentheses;-Wno-long-long;-fvisibility=hidden")
 endif()
@@ -47,7 +54,7 @@ set(rnnoise_PRIVATE_HEADERS
     src/opus_types.h
     src/pitch.h
     src/rnn.h
-    src/rnnoise_data.h
+    ${RNNOISE_MODEL_DIR}/src/rnnoise_data.h
     src/vec_neon.h
     src/vec.h
     src/vec_avx.h
@@ -65,7 +72,7 @@ set(rnnoise_SOURCES
 	src/nnet.c
 	src/nnet_default.c
 	src/parse_lpcnet_weights.c
-	src/rnnoise_data.c
+	${RNNOISE_MODEL_DIR}/src/rnnoise_data.c
 	src/rnnoise_tables.c
 )
 
@@ -96,20 +103,30 @@ if (RNN_ENABLE_X86_RTCD)
     endif()
 endif()
 
-include_directories(
-    ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/src
-)
-
 set(TARGET_NAME "rnnoise")
 
 add_library(${TARGET_NAME} ${rnnoise_SOURCES})
 
 target_compile_options(${TARGET_NAME} PRIVATE ${RNN_COMPILE_OPTIONS})
+target_compile_definitions(${TARGET_NAME} PRIVATE RNNOISE_BUILD $<$<BOOL:${BUILD_SHARED_LIBS}>:DLL_EXPORT>)
+target_include_directories(${TARGET_NAME}
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+           $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src ${RNNOISE_MODEL_DIR}/src)
+if(MSVC)
+    target_compile_definitions(${TARGET_NAME} PRIVATE _CRT_SECURE_NO_WARNINGS)
+    if(CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "x64")
+        # SSE2 is part of the x64 baseline; use the existing vectorized path.
+        target_compile_definitions(${TARGET_NAME} PRIVATE OPUS_X86_MAY_HAVE_SSE2)
+    endif()
+endif()
 
 if (LINUX)
     target_link_libraries(${TARGET_NAME} PRIVATE m)
 endif()
 
-install(TARGETS ${TARGET_NAME} DESTINATION ${INSTALL_LIB_DIR})
-install(FILES ${rnnoise_HEADERS} DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
+install(TARGETS ${TARGET_NAME}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(FILES ${rnnoise_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

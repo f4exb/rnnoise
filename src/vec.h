@@ -54,8 +54,8 @@ static inline void sgemv16x1(float *out, const float *weights, int rows, int col
    {
       for (j=0;j<cols;j++)
       {
-         const float * restrict w;
-         float * restrict y;
+         const float * RNN_RESTRICT w;
+         float * RNN_RESTRICT y;
          float xj;
          w = &weights[j*col_stride + i];
          xj = x[j];
@@ -88,8 +88,8 @@ static inline void sgemv8x1(float *out, const float *weights, int rows, int cols
    {
       for (j=0;j<cols;j++)
       {
-         const float * restrict w;
-         float * restrict y;
+         const float * RNN_RESTRICT w;
+         float * RNN_RESTRICT y;
          float xj;
          w = &weights[j*col_stride + i];
          xj = x[j];
@@ -131,7 +131,7 @@ static inline void sparse_sgemv8x4(float *out, const float *w, const int *idx, i
       for (j=0;j<cols;j++)
       {
          int pos;
-         float * restrict y;
+         float * RNN_RESTRICT y;
          float xj0, xj1, xj2, xj3;
          pos = (*idx++);
          xj0 = x[pos+0];
@@ -193,7 +193,7 @@ static inline void sparse_cgemv8x4(float *out, const opus_int8 *w, const int *id
       for (j=0;j<colblocks;j++)
       {
          int pos;
-         float * restrict y;
+         float * RNN_RESTRICT y;
          int xj0, xj1, xj2, xj3;
          pos = (*idx++);
          xj0 = x[pos+0];
@@ -258,7 +258,7 @@ static inline void sparse_cgemv8x4(float *out, const opus_int8 *w, const int *id
       for (j=0;j<colblocks;j++)
       {
          int pos;
-         float * restrict y;
+         float * RNN_RESTRICT y;
          int xj0, xj1, xj2, xj3;
          pos = (*idx++);
          xj0 = x[pos+0];
